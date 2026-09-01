@@ -29,10 +29,19 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — allow the Next.js frontend
+    # CORS — allow the Next.js frontend and Railway deployment domains
+    frontend_origins = [
+        settings.frontend_url.rstrip("/"),
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    if settings.frontend_url and settings.frontend_url not in frontend_origins:
+        frontend_origins.append(settings.frontend_url)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_url],
+        allow_origins=frontend_origins,
+        allow_origin_regex=r"https://.*(\.railway\.app|\.up\.railway\.app)",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
