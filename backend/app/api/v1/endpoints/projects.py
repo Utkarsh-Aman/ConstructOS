@@ -24,7 +24,6 @@ async def list_all_projects(current_user: dict = Depends(get_current_user)):
         result = supabase_admin.table("projects") \
             .select("*, companies(name)") \
             .eq("company_id", company_id) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []
@@ -40,7 +39,6 @@ async def list_all_projects(current_user: dict = Depends(get_current_user)):
         result = supabase_admin.table("projects") \
             .select("*, companies(name)") \
             .in_("id", project_ids) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []
@@ -203,7 +201,6 @@ async def list_worker_requirements(project_id: str, current_user: dict = Depends
     result = supabase_admin.table("worker_requirements") \
         .select("*") \
         .eq("project_id", project_id) \
-        .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .execute()
     return result.data or []
@@ -216,11 +213,14 @@ async def create_worker_requirement(
     current_user: dict = Depends(require_roles("site_manager", "company_admin")),
 ):
     req_id = str(uuid.uuid4())
+    data = body.model_dump(exclude_none=True)
+    if "deadline" in data and not data["deadline"]:
+        del data["deadline"]
     result = supabase_admin.table("worker_requirements").insert({
         "id": req_id,
         "project_id": project_id,
         "site_manager_id": current_user["id"],
-        **body.model_dump(),
+        **data,
     }).execute()
     return result.data[0]
 
@@ -241,7 +241,6 @@ async def list_material_requests(project_id: str, current_user: dict = Depends(g
     result = supabase_admin.table("material_requests") \
         .select("*") \
         .eq("project_id", project_id) \
-        .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .execute()
     return result.data or []
@@ -254,12 +253,13 @@ async def create_material_request(
     current_user: dict = Depends(require_roles("site_manager", "company_admin")),
 ):
     req_id = str(uuid.uuid4())
+    data = body.model_dump(exclude_none=True)
     result = supabase_admin.table("material_requests").insert({
         "id": req_id,
         "project_id": project_id,
         "site_manager_id": current_user["id"],
         "status": "draft",
-        **body.model_dump(),
+        **data,
     }).execute()
     return result.data[0]
 

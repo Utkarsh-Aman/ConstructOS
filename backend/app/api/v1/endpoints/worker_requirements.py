@@ -31,7 +31,6 @@ async def list_all_requirements(current_user: dict = Depends(get_current_user)):
         result = supabase_admin.table("worker_requirements") \
             .select("*, projects(name)") \
             .in_("project_id", project_ids) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []
@@ -44,7 +43,6 @@ async def list_all_requirements(current_user: dict = Depends(get_current_user)):
         result = supabase_admin.table("worker_requirements") \
             .select("*, projects(name)") \
             .in_("project_id", project_ids) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []
@@ -53,11 +51,9 @@ async def list_all_requirements(current_user: dict = Depends(get_current_user)):
         result = supabase_admin.table("worker_requirements") \
             .select("*, projects(name)") \
             .in_("status", ["open", "partially_filled"]) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []
-    
     
     return []
 
@@ -86,7 +82,6 @@ async def list_my_work(current_user: dict = Depends(require_roles("worker", "gro
     result = supabase_admin.table("worker_requirements") \
         .select("*, projects(name)") \
         .in_("id", req_ids) \
-        .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .execute()
     return result.data or []

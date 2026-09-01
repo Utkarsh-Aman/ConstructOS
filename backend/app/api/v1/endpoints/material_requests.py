@@ -34,7 +34,6 @@ async def list_all_material_requests(current_user: dict = Depends(get_current_us
         result = supabase_admin.table("material_requests") \
             .select("*, projects(name)") \
             .in_("project_id", project_ids) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []
@@ -47,7 +46,6 @@ async def list_all_material_requests(current_user: dict = Depends(get_current_us
         result = supabase_admin.table("material_requests") \
             .select("*, projects(name)") \
             .in_("project_id", project_ids) \
-            .is_("deleted_at", "null") \
             .order("created_at", desc=True) \
             .execute()
         return result.data or []

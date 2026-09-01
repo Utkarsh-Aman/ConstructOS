@@ -51,7 +51,6 @@ async def list_projects(
     result = supabase_admin.table("projects") \
         .select("*") \
         .eq("company_id", company_id) \
-        .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .execute()
     return result.data or []
