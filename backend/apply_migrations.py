@@ -20,7 +20,8 @@ async def main():
     
     files = [
         "supabase/migrations/001_initial_schema.sql",
-        "supabase/migrations/002_pgvector_rpc.sql"
+        "supabase/migrations/002_pgvector_rpc.sql",
+        "supabase/migrations/003_fix_rls_policies.sql",
     ]
     
     try:

@@ -1,5 +1,6 @@
 """Auth endpoints: login, register, OTP (workers), refresh."""
 import uuid
+import traceback
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,10 +31,16 @@ class RegisterRequest(BaseModel):
 @router.post("/login")
 async def login(body: LoginRequest):
     # Fetch user from DB by email
-    user_result = supabase_admin.table("users") \
-        .select("*") \
-        .eq("email", body.email) \
-        .execute()
+    try:
+        user_result = supabase_admin.table("users") \
+            .select("*") \
+            .eq("email", body.email) \
+            .execute()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error during login: {str(e)}"
+        )
 
     if not user_result.data or len(user_result.data) == 0:
         raise HTTPException(
@@ -82,7 +89,14 @@ async def login(body: LoginRequest):
 @router.post("/register")
 async def register(body: RegisterRequest):
     # Check if user already exists
-    existing = supabase_admin.table("users").select("id, role").eq("email", body.email).execute()
+    try:
+        existing = supabase_admin.table("users").select("id, role").eq("email", body.email).execute()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error checking existing user: {str(e)}"
+        )
+
     if existing.data and len(existing.data) > 0:
         actual_role = existing.data[0]["role"].replace("_", " ").title()
         raise HTTPException(
@@ -104,23 +118,45 @@ async def register(body: RegisterRequest):
         pass
 
     user_id = str(uuid.uuid4())
-    supabase_admin.table("users").insert({
-        "id": user_id,
-        "auth_id": auth_id,
-        "name": body.name,
-        "email": body.email,
-        "phone": body.phone,
-        "role": body.role,
-        "status": "active",
-    }).execute()
+    try:
+        supabase_admin.table("users").insert({
+            "id": user_id,
+            "auth_id": auth_id,
+            "name": body.name,
+            "email": body.email,
+            "phone": body.phone,
+            "role": body.role,
+            "status": "active",
+        }).execute()
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[AUTH REGISTER] User insert failed: {error_msg}")
+        print(f"[AUTH REGISTER] Traceback: {traceback.format_exc()}")
+        
+        # RLS violation — service role key might be misconfigured
+        if "row-level security" in error_msg.lower() or "42501" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Registration failed: database security policy error. "
+                       "The service role key may be misconfigured. "
+                       "Please verify SUPABASE_SERVICE_ROLE_KEY is correctly set."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {error_msg}"
+        )
 
     if body.role == "company_admin":
-        company_id = str(uuid.uuid4())
-        supabase_admin.table("companies").insert({
-            "id": company_id,
-            "name": f"{body.name}'s Company",
-            "owner_user_id": user_id,
-        }).execute()
+        try:
+            company_id = str(uuid.uuid4())
+            supabase_admin.table("companies").insert({
+                "id": company_id,
+                "name": f"{body.name}'s Company",
+                "owner_user_id": user_id,
+            }).execute()
+        except Exception as e:
+            print(f"[AUTH REGISTER] Company insert failed: {str(e)}")
+            # User was created, company creation failed — non-fatal
 
     token = create_access_token({"sub": user_id, "role": body.role})
     return {
