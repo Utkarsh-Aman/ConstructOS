@@ -6,6 +6,8 @@ import { LayoutDashboard, HardHat, FileText, Truck, Users, Package, Settings, Lo
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
+import Image from "next/image"
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -40,8 +42,15 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-nav text-white flex flex-col h-screen fixed top-0 left-0 z-20">
-      <div className="h-16 flex items-center px-6 border-b border-white/10 font-bold text-xl tracking-wide">
-        CONCURIS
+      <div className="h-16 flex items-center px-5 border-b border-white/10">
+        <Image
+          src="/name horizontal long logo.png"
+          alt="CONCURIS"
+          width={150}
+          height={36}
+          className="h-8 w-auto object-contain brightness-0 invert"
+          priority
+        />
       </div>
       
       <div className="px-6 pt-4 pb-2 text-xs text-white/50 uppercase tracking-wider font-semibold">

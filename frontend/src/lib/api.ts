@@ -1,11 +1,24 @@
 import axios from "axios"
 
-const rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
-const cleanUrl = rawUrl.trim().replace(/\/+$/, "")
-const API_URL = cleanUrl.endsWith("/api/v1") ? cleanUrl : `${cleanUrl}/api/v1`
+function getBaseUrl(): string {
+  let url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
+  url = url.trim().replace(/\/+$/, "")
+
+  // If bare domain like backend-xxx.up.railway.app is provided without protocol, prepend https://
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = url.includes("localhost") ? `http://${url}` : `https://${url}`
+  }
+
+  // Ensure path ends with /api/v1
+  if (!url.endsWith("/api/v1")) {
+    url = `${url}/api/v1`
+  }
+
+  return url
+}
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: getBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },

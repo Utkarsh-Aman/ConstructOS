@@ -15,8 +15,12 @@ const geistMono = Geist_Mono({
 import { AuthProvider } from "@/lib/auth-context"
 
 export const metadata: Metadata = {
-  title: "CONCURIS",
-  description: "Construction Management Platform",
+  title: "CONCURIS - Construction Management Platform",
+  description: "AI-driven construction management, resource allocation, and vendor collaboration platform.",
+  icons: {
+    icon: "/circular logo.png",
+    apple: "/circular logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

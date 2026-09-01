@@ -11,6 +11,8 @@ import { authApi } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
+import Image from "next/image"
+
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
@@ -56,7 +58,17 @@ export default function LoginPage() {
       </Link>
       
       <Card className="w-full max-w-md shadow-lg border-divider">
-        <CardHeader className="space-y-2 text-center pb-6">
+        <CardHeader className="space-y-3 text-center pb-6">
+          <div className="flex justify-center mb-1">
+            <Image
+              src="/circular logo.png"
+              alt="CONCURIS Logo"
+              width={64}
+              height={64}
+              className="rounded-full shadow-md object-contain"
+              priority
+            />
+          </div>
           <CardTitle className="text-3xl font-bold tracking-tight text-nav">Welcome back</CardTitle>
           <CardDescription>
             Enter your credentials to access your dashboard
