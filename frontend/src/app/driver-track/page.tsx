@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { deliveriesApi } from "@/lib/api"
 import { Button } from "@/components/ui/Button"
 import { Truck, Navigation, CheckCircle2, AlertTriangle } from "lucide-react"
 
-export default function DriverTrackPage() {
+function DriverTrackContent() {
   const searchParams = useSearchParams()
   const deliveryId = searchParams.get("delivery_id")
   const linkToken = searchParams.get("link_token")
@@ -136,5 +136,17 @@ export default function DriverTrackPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function DriverTrackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6 text-sm text-slate-400">
+        Loading tracking portal...
+      </div>
+    }>
+      <DriverTrackContent />
+    </Suspense>
   )
 }
