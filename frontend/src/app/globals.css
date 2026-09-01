@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F1F5F9; /* Light Slate Grey */
+  --foreground: #0F172A; /* Dark grey text */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  /* Custom CONCURIS Theme Colors */
+  --color-card: #F8FAFC; /* Off-white for data cards */
+  --color-nav: #1E293B; /* Deep navy blue for sidebar/topbar */
+  --color-primary: #EA580C; /* Safety amber orange for CTAs/Pending */
+  --color-success: #059669; /* Steel emerald green for positive metrics */
+  --color-divider: #E2E8F0; /* Slate gray for dividing lines */
+  
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  cursor: pointer;
+}

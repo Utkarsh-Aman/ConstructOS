@@ -1,0 +1,35 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# Database
+asyncpg>=0.29.0
+sqlalchemy[asyncio]>=2.0.30
+alembic>=1.13.0
+
+# Supabase
+supabase>=2.5.0
+
+# AI / LLM
+groq>=0.9.0
+pypdf>=4.2.0
+pillow>=10.3.0           # image handling for scanned PDFs
+
+# Vector embeddings (using Groq-compatible or sentence-transformers)
+sentence-transformers>=3.0.0
+numpy>=1.26.0
+
+# Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.9   # file uploads
+
+# Utilities
+httpx>=0.27.0
+python-dotenv>=1.0.0
+tenacity>=8.3.0           # retry logic for LLM / OCR calls
+structlog>=24.0.0         # structured logging
+
+# Background jobs (MVP: FastAPI BackgroundTasks; production-ready upgrade path)
+# arq>=0.25.0            # uncomment when scaling beyond MVP
