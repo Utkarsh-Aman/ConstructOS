@@ -191,33 +191,56 @@ async def post_my_location(
     return {"status": "ok", "last_lat": body.lat, "last_lng": body.lng, "updated_at": now_iso}
 
 
-@router.post("/{delivery_id}/driver-link", summary="Vendor generates a secure driver link")
+def is_valid_uuid(val: Optional[str]) -> bool:
+    if not val:
+        return False
+    try:
+        uuid.UUID(str(val))
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
+@router.post("/{delivery_id}/driver-link", summary="Vendor or manager generates a secure driver link")
 async def generate_driver_link(
     delivery_id: str,
     driver_id: Optional[str] = None,
-    current_user: dict = Depends(require_roles("vendor", "company_admin")),
+    current_user: dict = Depends(require_roles("vendor", "company_admin", "site_manager")),
 ):
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     expires_at = datetime.utcnow() + timedelta(hours=DRIVER_LINK_EXPIRE_HOURS)
 
-    # If driver_id is not provided, find or create a default driver record
-    actual_driver_id = driver_id
+    actual_driver_id = None
+
+    if driver_id and is_valid_uuid(driver_id):
+        drv_check = supabase_admin.table("drivers").select("id").eq("id", driver_id).execute()
+        if drv_check.data and len(drv_check.data) > 0:
+            actual_driver_id = driver_id
+
     if not actual_driver_id:
-        driver_query = supabase_admin.table("drivers").select("id").limit(1).execute()
-        if driver_query.data and len(driver_query.data) > 0:
-            actual_driver_id = driver_query.data[0]["id"]
-        else:
-            actual_driver_id = str(uuid.uuid4())
-            # create placeholder driver
-            vendor_query = supabase_admin.table("vendors").select("id").limit(1).execute()
-            v_id = vendor_query.data[0]["id"] if vendor_query.data else str(uuid.uuid4())
-            supabase_admin.table("drivers").insert({
-                "id": actual_driver_id,
-                "vendor_id": v_id,
-                "name": "Assigned Driver",
-                "contact": "9876543210"
-            }).execute()
+        if driver_id and not is_valid_uuid(driver_id):
+            name_check = supabase_admin.table("drivers").select("id").ilike("name", f"%{driver_id}%").execute()
+            if name_check.data and len(name_check.data) > 0:
+                actual_driver_id = name_check.data[0]["id"]
+
+        if not actual_driver_id:
+            driver_query = supabase_admin.table("drivers").select("id").limit(1).execute()
+            if driver_query.data and len(driver_query.data) > 0:
+                actual_driver_id = driver_query.data[0]["id"]
+            else:
+                actual_driver_id = str(uuid.uuid4())
+                vendor_query = supabase_admin.table("vendors").select("id").limit(1).execute()
+                v_id = vendor_query.data[0]["id"] if vendor_query.data else str(uuid.uuid4())
+                supabase_admin.table("drivers").insert({
+                    "id": actual_driver_id,
+                    "vendor_id": v_id,
+                    "name": str(driver_id) if (driver_id and not is_valid_uuid(driver_id)) else "Assigned Fleet Driver",
+                    "contact": "9876543210",
+                }).execute()
+
+    # Link driver to delivery
+    supabase_admin.table("deliveries").update({"driver_id": actual_driver_id}).eq("id", delivery_id).execute()
 
     assignment_id = str(uuid.uuid4())
     supabase_admin.table("driver_delivery_assignments").insert({
@@ -231,6 +254,7 @@ async def generate_driver_link(
     return {
         "link_token": raw_token,
         "expires_at": expires_at.isoformat(),
+        "driver_id": actual_driver_id,
         "note": "Share this token with the driver. It expires in 48 hours and can only be used for this delivery.",
     }
 
