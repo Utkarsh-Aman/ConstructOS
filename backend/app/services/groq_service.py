@@ -245,6 +245,17 @@ GUIDELINES:
 4. Format your answer cleanly in markdown (bullet points, bold text for key terms). DO NOT output bracketed citation tags like [Source 1] or chunk IDs.
 """
 
+PROJECT_AND_STANDARDS_SYSTEM_PROMPT = """You are the AI Project & Engineering Standards Assistant for the project "{project_name}".
+
+GUIDELINES:
+1. You have access to two knowledge sources in the provided excerpts:
+   - Project Documents (Master plans, drawings, and specifications for "{project_name}")
+   - National Construction Standards & BIS Codes (IS codes, safety rules, materials, engineering best practices)
+2. Provide a comprehensive, professional answer combining project-specific details and relevant national construction standards / BIS codes.
+3. If project documents specify a custom detail, prioritize the project requirement and note any applicable BIS standard.
+4. Format your answer cleanly in markdown (bullet points, tables, bold text). DO NOT output bracketed citation tags like [Source 1] or chunk IDs.
+"""
+
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
 async def generate_project_rag_answer(
@@ -252,9 +263,10 @@ async def generate_project_rag_answer(
     project_name: str,
     retrieved_chunks: list[dict],
     chat_history: list[dict],
+    include_global_kb: bool = False,
 ) -> dict:
     """
-    Generate an answer strictly grounded on project documents without citation tags.
+    Generate an answer grounded on project documents (and optionally national standards & BIS codes).
     """
     if not retrieved_chunks:
         return {
@@ -263,21 +275,22 @@ async def generate_project_rag_answer(
         }
 
     sources_text = "\n\n".join(
-        f"--- Project Document Excerpt {i+1} ({c.get('document_title', 'Project Plan')}) ---\n{c['chunk_text']}"
+        f"--- {c.get('source_scope', 'Document')} Excerpt {i+1} ({c.get('document_title', 'Project Plan')}) ---\n{c['chunk_text']}"
         for i, c in enumerate(retrieved_chunks)
     )
 
-    system_prompt = PROJECT_RAG_SYSTEM_PROMPT.format(project_name=project_name)
+    template = PROJECT_AND_STANDARDS_SYSTEM_PROMPT if include_global_kb else PROJECT_RAG_SYSTEM_PROMPT
+    system_prompt = template.format(project_name=project_name)
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(chat_history[-6:])
     messages.append({
         "role": "user",
-        "content": f"Project Documents:\n{sources_text}\n\nQuestion: {question}",
+        "content": f"Knowledge Excerpts:\n{sources_text}\n\nQuestion: {question}",
     })
 
     response = await call_groq_with_fallback(
         messages=messages,
-        temperature=0.2,
+        temperature=0.3 if include_global_kb else 0.2,
         max_tokens=1024,
     )
     answer = response.choices[0].message.content.strip()

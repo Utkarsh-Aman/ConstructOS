@@ -28,17 +28,19 @@ async def create_session(request: Request, response: Response):
         "expires_at": expires_at.isoformat(),
     }).execute()
 
-    # Set HTTP-only cookie
+    is_prod = settings.env != "development"
+    # Set cookie (SameSite=None for cross-origin production deployments)
     response.set_cookie(
         key=COOKIE_NAME,
         value=raw_token,
         httponly=True,
-        samesite="lax",
-        secure=settings.env != "development",
+        samesite="none" if is_prod else "lax",
+        secure=is_prod,
         max_age=settings.anonymous_session_expire_hours * 3600,
     )
 
     return {
         "message": "Session created",
+        "session_token": raw_token,
         "expires_at": expires_at.isoformat(),
     }

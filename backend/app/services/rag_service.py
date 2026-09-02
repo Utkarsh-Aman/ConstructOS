@@ -47,11 +47,13 @@ async def retrieve_relevant_chunks(
     top_k: int = TOP_K,
     project_id: Optional[str] = None,
     filter_source_types: Optional[list[str]] = None,
+    include_global_kb: bool = False,
 ) -> list[dict]:
     """
     Embed the query and retrieve relevant chunks.
     When project_id is provided, fetches the project's documents & chunks and computes
-    exact cosine similarity in NumPy (bulletproof, sub-millisecond, unaffected by global table size).
+    exact cosine similarity in NumPy.
+    If include_global_kb is True, supplements project chunks with national / BIS construction standards.
     When project_id is None, uses pgvector similarity search across the global knowledge base.
     """
     import json
@@ -66,53 +68,69 @@ async def retrieve_relevant_chunks(
             .eq("project_id", project_id) \
             .execute()
         docs = doc_res.data or []
-        if not docs:
-            logger.info("rag_retrieval_no_project_docs", project_id=project_id)
-            return []
-
         doc_map = {d["id"]: d for d in docs}
         doc_ids = list(doc_map.keys())
 
-        # 2. Fetch all chunks belonging to these project documents
-        chunk_res = supabase_admin.table("rag_chunks") \
-            .select("id, document_id, chunk_index, chunk_text, embedding") \
-            .in_("document_id", doc_ids) \
-            .execute()
-        chunks = chunk_res.data or []
-        if not chunks:
-            logger.info("rag_retrieval_no_project_chunks", project_id=project_id)
-            return []
+        top_chunks = []
+        if doc_ids:
+            # 2. Fetch all chunks belonging to these project documents
+            chunk_res = supabase_admin.table("rag_chunks") \
+                .select("id, document_id, chunk_index, chunk_text, embedding") \
+                .in_("document_id", doc_ids) \
+                .execute()
+            chunks = chunk_res.data or []
 
-        # 3. Vectorized exact cosine similarity
-        q_arr = np.array(query_embedding, dtype=np.float32)
-        q_norm = np.linalg.norm(q_arr)
-        if q_norm == 0:
-            return []
+            # 3. Vectorized exact cosine similarity
+            q_arr = np.array(query_embedding, dtype=np.float32)
+            q_norm = np.linalg.norm(q_arr)
+            if q_norm > 0 and chunks:
+                scored = []
+                for c in chunks:
+                    emb = c.get("embedding")
+                    if not emb:
+                        continue
+                    if isinstance(emb, str):
+                        emb = json.loads(emb)
+                    c_arr = np.array(emb, dtype=np.float32)
+                    c_norm = np.linalg.norm(c_arr)
+                    if c_norm == 0:
+                        continue
+                    sim = float(np.dot(q_arr, c_arr) / (q_norm * c_norm))
+                    c_copy = dict(c)
+                    c_copy.pop("embedding", None)
+                    c_copy["similarity"] = sim
+                    c_copy["source_scope"] = "Project Document"
+                    d_info = doc_map.get(c["document_id"], {})
+                    c_copy["document_title"] = d_info.get("title")
+                    c_copy["project_name"] = d_info.get("project_name")
+                    c_copy["company_name"] = d_info.get("company_name")
+                    scored.append((sim, c_copy))
 
-        scored = []
-        for c in chunks:
-            emb = c.get("embedding")
-            if not emb:
-                continue
-            if isinstance(emb, str):
-                emb = json.loads(emb)
-            c_arr = np.array(emb, dtype=np.float32)
-            c_norm = np.linalg.norm(c_arr)
-            if c_norm == 0:
-                continue
-            sim = float(np.dot(q_arr, c_arr) / (q_norm * c_norm))
-            c_copy = dict(c)
-            c_copy.pop("embedding", None)  # Save memory
-            c_copy["similarity"] = sim
-            d_info = doc_map.get(c["document_id"], {})
-            c_copy["document_title"] = d_info.get("title")
-            c_copy["project_name"] = d_info.get("project_name")
-            c_copy["company_name"] = d_info.get("company_name")
-            scored.append((sim, c_copy))
+                scored.sort(key=lambda x: x[0], reverse=True)
+                top_chunks = [c for sim, c in scored[:top_k] if sim >= 0.15]
 
-        scored.sort(key=lambda x: x[0], reverse=True)
-        top_chunks = [c for sim, c in scored[:top_k] if sim >= 0.15]
-        logger.info("rag_project_retrieval_success", project_id=project_id, chunk_count=len(top_chunks))
+        # 4. If include_global_kb is True, supplement with national standards & BIS codes
+        if include_global_kb:
+            try:
+                global_params = {
+                    "query_embedding": query_embedding,
+                    "match_threshold": 0.10,
+                    "match_count": 4,
+                }
+                global_res = supabase_admin.rpc("match_rag_chunks", global_params).execute()
+                for gc in (global_res.data or []):
+                    gc_copy = dict(gc)
+                    gc_copy["source_scope"] = "National / BIS Standard"
+                    top_chunks.append(gc_copy)
+            except Exception as e:
+                logger.warning("supplement_global_kb_failed", error=str(e))
+
+        logger.info(
+            "rag_project_retrieval_success",
+            project_id=project_id,
+            chunk_count=len(top_chunks),
+            included_global=include_global_kb,
+        )
         return top_chunks
 
     # Public/Global search across massive knowledge base

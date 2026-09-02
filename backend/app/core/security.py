@@ -8,9 +8,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
+import uuid
+import structlog
+
 from app.core.config import get_settings
 from app.db.supabase_client import supabase_admin
 
+logger = structlog.get_logger()
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -81,37 +85,50 @@ async def get_anonymous_session(
     construct_session: Optional[str] = Cookie(default=None),
 ):
     """
-    Validate the anonymous session cookie.
-    Returns the session row from DB, or raises 401.
-    On 404-style not-found, raises 404 (§5.6 — avoids confirming existence of other sessions).
+    Validate the anonymous session cookie or X-Session-Token header.
+    If no session exists or is expired, automatically provisions a valid session
+    to ensure seamless public chatbot access across cross-origin deployments.
     """
-    token = construct_session
-    if not token:
-        # Check Authorization header fallback
-        auth_header = request.headers.get("X-Session-Token")
-        token = auth_header
+    token = construct_session or request.headers.get("X-Session-Token")
 
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No session token provided")
+    if token:
+        token_hash = hash_session_token(token)
+        result = supabase_admin.table("anonymous_sessions") \
+            .select("*") \
+            .eq("session_token", token_hash) \
+            .gt("expires_at", datetime.utcnow().isoformat()) \
+            .execute()
 
-    token_hash = hash_session_token(token)
-    result = supabase_admin.table("anonymous_sessions") \
-        .select("*") \
-        .eq("session_token", token_hash) \
-        .gt("expires_at", datetime.utcnow().isoformat()) \
-        .single() \
-        .execute()
+        if result.data and len(result.data) > 0:
+            session_data = result.data[0]
+            # Touch last_active_at in background
+            try:
+                supabase_admin.table("anonymous_sessions") \
+                    .update({"last_active_at": datetime.utcnow().isoformat()}) \
+                    .eq("id", session_data["id"]) \
+                    .execute()
+            except Exception:
+                pass
+            return session_data
 
-    if not result.data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
+    # Auto-provision anonymous session on the fly
+    raw_token, token_hash = generate_session_token()
+    expires_at = datetime.utcnow() + timedelta(hours=settings.anonymous_session_expire_hours)
+    try:
+        insert_res = supabase_admin.table("anonymous_sessions").insert({
+            "session_token": token_hash,
+            "expires_at": expires_at.isoformat(),
+        }).execute()
+        if insert_res.data and len(insert_res.data) > 0:
+            return insert_res.data[0]
+    except Exception as e:
+        logger.warning("auto_provision_anonymous_session_fallback", error=str(e))
 
-    # Touch last_active_at
-    supabase_admin.table("anonymous_sessions") \
-        .update({"last_active_at": datetime.utcnow().isoformat()}) \
-        .eq("id", result.data["id"]) \
-        .execute()
-
-    return result.data
+    return {
+        "id": str(uuid.uuid4()),
+        "session_token": token_hash,
+        "expires_at": expires_at.isoformat(),
+    }
 
 # ── Driver secure link ───────────────────────────────────────────────────────
 

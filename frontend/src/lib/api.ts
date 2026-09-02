@@ -25,12 +25,17 @@ export const api = axios.create({
   withCredentials: true, // For sending cookies/tokens if configured
 })
 
-// Optional interceptor for token injection
+// Interceptor for Auth & Anonymous session token injection
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("token")
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+
+    const sessionToken = sessionStorage.getItem("construct_session_token") || localStorage.getItem("construct_session_token")
+    if (sessionToken) {
+      config.headers["X-Session-Token"] = sessionToken
     }
   }
   return config
@@ -84,7 +89,13 @@ export const materialRequestsApi = {
 }
 
 export const publicApi = {
-  initSession: () => api.post("/public/sessions/"),
+  initSession: async () => {
+    const res = await api.post("/public/sessions/")
+    if (res.data?.session_token && typeof window !== "undefined") {
+      sessionStorage.setItem("construct_session_token", res.data.session_token)
+    }
+    return res
+  },
   verifyQuotation: (id: string) => api.get(`/public/quotations/${id}`),
   chat: (data: any) => api.post("/public/chat/message", data),
 }

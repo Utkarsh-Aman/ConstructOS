@@ -47,6 +47,7 @@ export default function AIProjectQueryPage() {
   ])
   const [inputQuery, setInputQuery] = useState("")
   const [querying, setQuerying] = useState(false)
+  const [includeGlobalKb, setIncludeGlobalKb] = useState(false)
   
   // Upload modal / state
   const [uploading, setUploading] = useState(false)
@@ -156,6 +157,7 @@ export default function AIProjectQueryPage() {
       const res = await projectRagApi.queryProject(selectedProjectId, {
         question: query,
         chat_history: history,
+        include_global_kb: includeGlobalKb,
       })
 
       const aiMsg: Message = {
@@ -184,26 +186,29 @@ export default function AIProjectQueryPage() {
   const selectedProject = projects.find(p => p.id === selectedProjectId)
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 pb-3 sm:pb-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-800 flex items-center gap-2.5">
-            <Bot className="w-8 h-8 text-primary" /> AI Project Knowledge & Query
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
+            <Bot className="w-6 h-6 sm:w-7 sm:h-7 text-primary" /> AI Project Knowledge & Query
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
             Query specifications, safety codes, drawings, and knowledge base documents grounded on your active projects.
           </p>
         </div>
 
         {/* Project Selector */}
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-2 shadow-sm">
-          <Building2 className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-2 shadow-xs w-full sm:w-auto justify-between sm:justify-start">
+          <div className="flex items-center gap-1.5">
+            <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="text-xs text-slate-400 sm:hidden">Project:</span>
+          </div>
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
             disabled={loadingProjects || projects.length === 0}
-            className="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none cursor-pointer pr-2"
+            className="text-xs sm:text-sm font-semibold text-slate-700 bg-transparent focus:outline-none cursor-pointer pr-2 flex-1 sm:flex-initial"
           >
             {projects.length === 0 ? (
               <option value="">No Active Projects</option>
@@ -219,14 +224,14 @@ export default function AIProjectQueryPage() {
       </div>
 
       {/* Main Grid: Left side documents / metadata, Right side Chat Query Console */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
         
         {/* Left Column: Project Documents & Ingestion (4 cols) */}
-        <div className="lg:col-span-4 space-y-4">
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="p-4 pb-3 border-b border-slate-100">
+        <div className="lg:col-span-4 space-y-3 sm:space-y-4 order-2 lg:order-1">
+          <Card className="shadow-xs border-slate-200">
+            <CardHeader className="p-3.5 pb-2.5 border-b border-slate-100">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <CardTitle className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-primary" /> Project Knowledge Base
                 </CardTitle>
                 <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
@@ -238,7 +243,7 @@ export default function AIProjectQueryPage() {
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-3.5 space-y-3">
               {/* Document upload button */}
               <input
                 type="file"
@@ -251,7 +256,7 @@ export default function AIProjectQueryPage() {
               <Button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading || !selectedProjectId}
-                className="w-full bg-primary hover:bg-primary/90 text-white text-xs font-semibold py-2.5 flex items-center justify-center gap-2 shadow-sm"
+                className="w-full bg-primary hover:bg-primary/90 text-white text-xs font-semibold py-2.5 flex items-center justify-center gap-2 shadow-xs"
               >
                 {uploading ? (
                   <>
@@ -279,14 +284,14 @@ export default function AIProjectQueryPage() {
               )}
 
               {/* Indexed documents list */}
-              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[220px] lg:max-h-[320px] overflow-y-auto pr-1">
                 {loadingDocs ? (
-                  <div className="text-center py-6 text-xs text-slate-400">Loading indexed documents...</div>
+                  <div className="text-center py-4 text-xs text-slate-400">Loading indexed documents...</div>
                 ) : documents.length === 0 ? (
-                  <div className="text-center py-6 px-3 border border-dashed border-slate-200 rounded-xl bg-slate-50 text-xs text-slate-500">
-                    <FileText className="w-6 h-6 mx-auto text-slate-300 mb-1" />
-                    No custom documents indexed for this project yet.
-                    <p className="text-[11px] text-slate-400 mt-1">
+                  <div className="text-center py-5 px-3 border border-dashed border-slate-200 rounded-xl bg-slate-50 text-xs text-slate-500">
+                    <FileText className="w-5 h-5 mx-auto text-slate-300 mb-1" />
+                    No custom documents indexed yet.
+                    <p className="text-[11px] text-slate-400 mt-0.5">
                       Upload a PDF above to ground questions on this project!
                     </p>
                   </div>
@@ -294,10 +299,10 @@ export default function AIProjectQueryPage() {
                   documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="p-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl transition space-y-1"
+                      className="p-2.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl transition space-y-0.5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs text-slate-800 truncate max-w-[200px]" title={doc.title}>
+                        <span className="font-semibold text-xs text-slate-800 truncate max-w-[170px] sm:max-w-[200px]" title={doc.title}>
                           {doc.title}
                         </span>
                         <span className="text-[10px] bg-slate-200/80 text-slate-600 px-1.5 py-0.5 rounded font-medium">
@@ -312,63 +317,97 @@ export default function AIProjectQueryPage() {
                 )}
               </div>
 
-              {/* Project Scope KB badge */}
-              <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="font-semibold text-[11px]">Strictly Project-Scoped</p>
-                  <p className="text-[10px] text-blue-700 mt-0.5">
-                    Answers are strictly grounded in drawings, master plans, and documents uploaded to this project.
-                  </p>
+              {/* Knowledge Scope Toggle Card */}
+              <div 
+                onClick={() => setIncludeGlobalKb(!includeGlobalKb)}
+                className={`p-3 rounded-xl border text-xs cursor-pointer transition-all duration-200 ${
+                  includeGlobalKb
+                    ? "bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-xs ring-1 ring-emerald-300/60"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                    <Sparkles className={`w-3.5 h-3.5 ${includeGlobalKb ? "text-emerald-600" : "text-slate-400"}`} />
+                    <span>Include BIS / IS Standards</span>
+                  </div>
+
+                  {/* Toggle switch UI */}
+                  <div className={`w-8 h-4.5 flex items-center rounded-full p-0.5 transition-colors duration-200 ${
+                    includeGlobalKb ? "bg-emerald-600 justify-end" : "bg-slate-300 justify-start"
+                  }`}>
+                    <div className="bg-white w-3.5 h-3.5 rounded-full shadow-xs transform transition-transform" />
+                  </div>
                 </div>
+
+                <p className="text-[10px] leading-relaxed text-slate-500">
+                  {includeGlobalKb
+                    ? "Active: Answers search both project master plans AND 22,000+ national BIS construction standards & codes."
+                    : "Project Only: Answers search strictly within your uploaded master plans and drawings for this project."}
+                </p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Right Column: AI Query Console (8 cols) */}
-        <div className="lg:col-span-8">
-          <Card className="shadow-sm border-slate-200 flex flex-col h-[650px]">
-            <CardHeader className="p-4 border-b border-slate-100 shrink-0 bg-slate-50/50">
-              <div className="flex justify-between items-center">
+        <div className="lg:col-span-8 order-1 lg:order-2 w-full">
+          <Card className="shadow-xs border-slate-200 flex flex-col h-[560px] sm:h-[620px] lg:h-[650px]">
+            <CardHeader className="p-3 px-3.5 sm:px-4 border-b border-slate-100 shrink-0 bg-slate-50/70">
+              <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
-                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <CardTitle className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-primary" /> AI Project Assistant Console
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">
-                    Grounded on project: <span className="font-semibold text-slate-700">{selectedProject?.name || "All Projects"}</span>
+                  <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                    <span>Project:</span>
+                    <span className="font-semibold text-slate-700">{selectedProject?.name || "All Projects"}</span>
                   </CardDescription>
                 </div>
-                {selectedProject && (
-                  <span className="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-semibold">
-                    RAG Active
-                  </span>
-                )}
+
+                <div className="flex items-center gap-2">
+                  {/* Interactive Header Mode Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setIncludeGlobalKb(!includeGlobalKb)}
+                    className={`text-xs px-2.5 sm:px-3 py-1 rounded-full font-medium flex items-center gap-1.5 transition-all cursor-pointer border ${
+                      includeGlobalKb
+                        ? "bg-emerald-100/90 text-emerald-900 border-emerald-300 hover:bg-emerald-200/80 shadow-xs"
+                        : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/70"
+                    }`}
+                    title="Click to toggle between Project Only and Project + BIS standards"
+                  >
+                    <span className={`w-2 h-2 rounded-full ${includeGlobalKb ? "bg-emerald-600 animate-pulse" : "bg-slate-400"}`} />
+                    <span>{includeGlobalKb ? "BIS Codes ON" : "Project Only"}</span>
+                  </button>
+                </div>
               </div>
             </CardHeader>
 
             {/* Chat message stream */}
-            <CardContent className="p-4 flex-1 overflow-y-auto space-y-4">
+            <CardContent className="p-3 sm:p-4 flex-1 overflow-y-auto space-y-3 sm:space-y-4">
               {messages.map((msg, index) => (
                 <div
                   key={index}
                   className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
+                    className={`max-w-[95%] sm:max-w-[85%] rounded-2xl p-3 sm:p-4 text-xs sm:text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-primary text-white rounded-br-none shadow-sm"
+                        ? "bg-primary text-white rounded-br-none shadow-xs"
                         : "bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200"
                     }`}
                   >
                     {msg.role === "user" ? (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                      <div className="whitespace-pre-wrap break-words">{msg.content}</div>
                     ) : (
-                      <MarkdownContent content={msg.content} />
+                      <div className="overflow-x-auto">
+                        <MarkdownContent content={msg.content} />
+                      </div>
                     )}
 
                     <div
-                      className={`text-[10px] mt-2 ${
+                      className={`text-[10px] mt-1.5 ${
                         msg.role === "user" ? "text-white/70 text-right" : "text-slate-400"
                       }`}
                     >
@@ -379,9 +418,9 @@ export default function AIProjectQueryPage() {
               ))}
 
               {querying && (
-                <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 w-fit">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span>Searching vector embeddings and generating answer...</span>
+                <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 w-fit">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                  <span className="text-[11px] sm:text-xs">Searching knowledge base and generating answer...</span>
                 </div>
               )}
 
@@ -389,24 +428,24 @@ export default function AIProjectQueryPage() {
             </CardContent>
 
             {/* Quick Prompts & Query Input Bar */}
-            <div className="p-3 border-t border-slate-100 bg-white shrink-0 space-y-2">
+            <div className="p-2.5 sm:p-3 border-t border-slate-100 bg-white shrink-0 space-y-2">
               {/* Suggested quick chips */}
-              <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 text-[11px] sm:text-xs no-scrollbar">
                 <button
                   onClick={() => handleSendQuery("What are the key technical specifications of this project?")}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 whitespace-nowrap transition"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 whitespace-nowrap transition shrink-0"
                 >
                   📋 Technical Specs
                 </button>
                 <button
                   onClick={() => handleSendQuery("What safety regulations and standards apply?")}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 whitespace-nowrap transition"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 whitespace-nowrap transition shrink-0"
                 >
                   🦺 Safety Rules
                 </button>
                 <button
                   onClick={() => handleSendQuery("Summarize concrete and steel material requirements")}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 whitespace-nowrap transition"
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 whitespace-nowrap transition shrink-0"
                 >
                   🧱 Material Specs
                 </button>
@@ -423,14 +462,14 @@ export default function AIProjectQueryPage() {
                 <Input
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
-                  placeholder={`Ask a question about ${selectedProject?.name || "this project"}...`}
+                  placeholder={`Ask about ${selectedProject?.name || "this project"}...`}
                   disabled={querying || !selectedProjectId}
-                  className="flex-1 text-sm bg-slate-50 focus:bg-white"
+                  className="flex-1 text-xs sm:text-sm bg-slate-50 focus:bg-white h-10"
                 />
                 <Button
                   type="submit"
                   disabled={querying || !inputQuery.trim() || !selectedProjectId}
-                  className="bg-primary hover:bg-primary/90 text-white px-5"
+                  className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 h-10"
                 >
                   <Send className="w-4 h-4" />
                 </Button>

@@ -1,28 +1,45 @@
 "use client"
 
 import { useState } from "react"
-import { Search, User } from "lucide-react"
+import { User, Menu } from "lucide-react"
 import { NotificationsDropdown } from "@/components/layout/NotificationsDropdown"
 import { UserProfileModal } from "@/components/layout/UserProfileModal"
+import Image from "next/image"
+import Link from "next/link"
 
-export function Topbar() {
+interface TopbarProps {
+  onMobileMenuToggle?: () => void
+}
+
+export function Topbar({ onMobileMenuToggle }: TopbarProps) {
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   return (
     <>
-      <header className="h-16 bg-card border-b border-divider flex items-center justify-between px-8 sticky top-0 z-10">
-        <div className="flex items-center w-96">
-          <div className="relative w-full">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search projects, materials..."
-              className="w-full bg-background border border-divider rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+      <header className="h-16 bg-card border-b border-divider flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+          {/* Mobile Hamburger Button */}
+          <button
+            onClick={onMobileMenuToggle}
+            className="p-2 -ml-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 lg:hidden cursor-pointer"
+            aria-label="Open sidebar menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Mobile Logo Brand */}
+          <Link href="/dashboard" className="flex items-center lg:hidden mr-1">
+            <Image
+              src="/name horizontal long logo.png"
+              alt="CONCURIS"
+              width={120}
+              height={30}
+              className="h-7 w-auto object-contain"
             />
-          </div>
+          </Link>
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <NotificationsDropdown />
           
           <button

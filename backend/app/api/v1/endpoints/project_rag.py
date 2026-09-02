@@ -21,6 +21,7 @@ settings = get_settings()
 class ProjectQueryRequest(BaseModel):
     question: str
     chat_history: list[dict] = []
+    include_global_kb: bool = False
 
 
 @router.get("/{project_id}/documents", summary="List indexed RAG documents for a project (including Master Plans)")
@@ -217,11 +218,12 @@ async def query_project_rag(
 
     project_name = project.data.get("name")
 
-    # Retrieve relevant chunks strictly scoped to this project only
+    # Retrieve relevant chunks (strictly project or hybrid project + BIS standards)
     retrieved_chunks = await retrieve_relevant_chunks(
         query=body.question,
         top_k=6,
         project_id=project_id,
+        include_global_kb=body.include_global_kb,
     )
 
     from app.services.groq_service import generate_project_rag_answer
@@ -230,10 +232,12 @@ async def query_project_rag(
         project_name=project_name,
         retrieved_chunks=retrieved_chunks,
         chat_history=body.chat_history,
+        include_global_kb=body.include_global_kb,
     )
 
     return {
         "answer": result["answer"],
         "grounded": result.get("grounded", False),
         "project_name": project_name,
+        "included_global_kb": body.include_global_kb,
     }
