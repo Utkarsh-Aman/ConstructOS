@@ -2,15 +2,9 @@
 Groq LLM service.
 Handles:
  1. Structured extraction of quotation line items from raw OCR text.
- 2. LLM-assisted normalization (material descriptions → canonical categories).
- 3. Plain-language explanation of already-determined flags.
- 4. RAG answer generation (grounded on retrieved chunks).
-
-Critical rules (§2.5, §9.4):
- - LLM NEVER decides whether something is flagged — it only explains flags
-   already raised by the deterministic engine.
- - All numbers from the original text must be preserved unchanged.
- - If retrieval returns nothing relevant, return explicit "no grounded source" response.
+ 2. Plain-language explanation of already-determined flags.
+ 3. Public RAG answer generation (helpful, comprehensive, no citations).
+ 4. Project-scoped RAG answer generation (strictly project documents, no citations).
 """
 import json
 from typing import Optional
@@ -25,6 +19,30 @@ logger = structlog.get_logger()
 settings = get_settings()
 
 groq_client = AsyncGroq(api_key=settings.groq_api_key)
+
+FALLBACK_MODELS = [
+    settings.groq_model,
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
+    "groq/compound",
+]
+
+
+async def call_groq_with_fallback(**kwargs):
+    """Executes a Groq chat completion with automatic model fallback."""
+    last_err = None
+    for model_name in FALLBACK_MODELS:
+        try:
+            call_kwargs = dict(kwargs)
+            call_kwargs["model"] = model_name
+            return await groq_client.chat.completions.create(**call_kwargs)
+        except Exception as err:
+            last_err = err
+            logger.warning("groq_model_fallback", failed_model=model_name, error=str(err))
+            continue
+    raise last_err
+
 
 # ── Extraction ───────────────────────────────────────────────────────────────
 
@@ -42,20 +60,20 @@ CRITICAL RULES — you MUST follow these without exception:
 OUTPUT SCHEMA:
 {
   "vendor_info": { "name": str|null, "date": str|null, "quotation_number": str|null, "validity_period": str|null },
-  "currency": str|null,  // e.g. "INR" — null if not detectable
+  "currency": str|null,
   "line_items": [
     {
       "line_number": int,
       "description_extracted": str|null,
-      "material_normalised": str|null,          // canonical material category
-      "quantity_extracted": str|null,            // EXACT string from document
-      "quantity_normalised": number|null,        // parsed numeric value — null if ambiguous
+      "material_normalised": str|null,
+      "quantity_extracted": str|null,
+      "quantity_normalised": number|null,
       "unit_extracted": str|null,
-      "unit_normalised": str|null,               // canonical unit (e.g. "bag", "m³", "kg")
-      "unit_price_extracted": number|null,       // EXACT value from document
-      "total_price_extracted": number|null,      // EXACT value from document
+      "unit_normalised": str|null,
+      "unit_price_extracted": number|null,
+      "total_price_extracted": number|null,
       "tax": number|null,
-      "field_source": {                          // per-field source tag
+      "field_source": {
         "description": "Extracted"|"Inferred"|"Missing",
         "material_normalised": "Normalised"|"Missing",
         "quantity": "Extracted"|"Inferred"|"Missing",
@@ -76,24 +94,18 @@ OUTPUT SCHEMA:
   },
   "subtotal_extracted": number|null,
   "tax_total_extracted": number|null,
-  "grand_total_extracted": number|null,           // EXACT value from document
+  "grand_total_extracted": number|null,
   "payment_terms": str|null,
   "terms_and_conditions": str|null,
-  "extraction_notes": str|null                    // any important caveats about readability
+  "extraction_notes": str|null
 }
 """
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
 async def extract_quotation_line_items(raw_text: str) -> dict:
-    """
-    Call Groq to perform structured extraction of a quotation.
-    Returns a dict matching the schema above.
-    Numbers are NEVER altered — the prompt enforces this explicitly.
-    """
     logger.info("llm_extraction_start", text_length=len(raw_text))
-    response = await groq_client.chat.completions.create(
-        model=settings.groq_model,
+    response = await call_groq_with_fallback(
         messages=[
             {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
             {
@@ -101,7 +113,7 @@ async def extract_quotation_line_items(raw_text: str) -> dict:
                 "content": f"Extract all line items from this construction quotation document:\n\n{raw_text}",
             },
         ],
-        temperature=0.0,   # deterministic extraction
+        temperature=0.0,
         max_tokens=4096,
         response_format={"type": "json_object"},
     )
@@ -129,19 +141,13 @@ CRITICAL RULES:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
 async def generate_finding_explanation(finding: dict, line_item: dict, reference_data: Optional[dict]) -> str:
-    """
-    Generate a plain-language explanation for a VerificationFinding.
-    The finding's outcome (Flagged/NoIssueDetected/InsufficientData) has already been
-    determined by deterministic code — the LLM only explains it.
-    """
     context = json.dumps({
         "finding": finding,
         "line_item": line_item,
         "reference_data": reference_data,
     }, indent=2)
 
-    response = await groq_client.chat.completions.create(
-        model=settings.groq_model,
+    response = await call_groq_with_fallback(
         messages=[
             {"role": "system", "content": EXPLANATION_SYSTEM_PROMPT},
             {"role": "user", "content": f"Explain this finding in plain language:\n{context}"},
@@ -154,10 +160,8 @@ async def generate_finding_explanation(finding: dict, line_item: dict, reference
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
 async def generate_overall_summary(findings: list[dict], line_items: list[dict]) -> str:
-    """Generate 2–3 sentence overall summary of the analysis. Grounded on deterministic findings only."""
     context = json.dumps({"findings": findings, "line_item_count": len(line_items)}, indent=2)
-    response = await groq_client.chat.completions.create(
-        model=settings.groq_model,
+    response = await call_groq_with_fallback(
         messages=[
             {
                 "role": "system",
@@ -176,21 +180,17 @@ async def generate_overall_summary(findings: list[dict], line_items: list[dict])
     return response.choices[0].message.content.strip()
 
 
-# ── RAG Chat ─────────────────────────────────────────────────────────────────
+# ── Public RAG Chat (General, Friendly, Flexible) ─────────────────────────────
 
-RAG_SYSTEM_PROMPT = """You are ConstructOS Assistant — a helpful AI for answering construction-related questions.
+PUBLIC_RAG_SYSTEM_PROMPT = """You are ConstructOS Assistant — a friendly, knowledgeable, and expert AI assistant for construction, civil engineering, architecture, building materials, waterproofing, glazing, site safety, and project workflows.
 
-CRITICAL RULES:
-1. Answer ONLY from the provided source documents. Do not use any knowledge not in the sources.
-2. If the sources do not contain enough information to answer reliably, say explicitly:
-   "I don't have a reliable grounded source for this question."
-   Never fabricate an answer.
-3. Cite your sources in your answer using the format [Source N] where N matches the source index provided.
-4. Keep answers clear, concise, and appropriate for non-technical users.
-5. If the user asks something outside construction/the platform's scope, politely redirect them.
-
-DISCLAIMER (always true): Answers are generated from available sources and may be incomplete.
-They are not a substitute for professional advice.
+GUIDELINES:
+1. Provide helpful, informative, and well-structured answers to user questions.
+2. Use the provided reference context when relevant to provide accurate, concrete facts and specifications.
+3. If the user asks general engineering or construction questions (such as waterproofing methods, drainage in curtain glazing, cement ratios, rebar spacing, safety rules), explain the concept clearly and thoroughly using sound engineering principles.
+4. Format your response cleanly using markdown (bullet points, bold text for key terms).
+5. DO NOT include bracketed citation tags like [Source 1], [Source 2], or chunk IDs in your answer. Write naturally and directly.
+6. Maintain a helpful, professional, and accessible tone for contractors, site engineers, and property owners.
 """
 
 
@@ -201,38 +201,87 @@ async def generate_rag_answer(
     chat_history: list[dict],
 ) -> dict:
     """
-    Generate a grounded RAG answer.
-    Returns {"answer": str, "cited_chunk_ids": [uuid, ...], "grounded": bool}
+    Generate a helpful, grounded RAG answer for public chat (no citations tags).
     """
-    if not retrieved_chunks:
-        return {
-            "answer": "I don't have a reliable grounded source for this question. Please consult a construction professional.",
-            "cited_chunk_ids": [],
-            "grounded": False,
-        }
+    sources_text = ""
+    if retrieved_chunks:
+        sources_text = "\n\n".join(
+            f"--- Reference Excerpt {i+1} ---\n{c['chunk_text']}"
+            for i, c in enumerate(retrieved_chunks)
+        )
 
-    sources_block = "\n\n".join(
-        f"[Source {i+1}] (Document: {c['document_title']}, ID: {c['id']})\n{c['chunk_text']}"
-        for i, c in enumerate(retrieved_chunks)
-    )
-
-    messages = [{"role": "system", "content": RAG_SYSTEM_PROMPT}]
-    # Include last N messages of chat history for context
+    messages = [{"role": "system", "content": PUBLIC_RAG_SYSTEM_PROMPT}]
     messages.extend(chat_history[-6:])
-    messages.append({
-        "role": "user",
-        "content": f"Sources:\n{sources_block}\n\nQuestion: {question}",
-    })
 
-    response = await groq_client.chat.completions.create(
-        model=settings.groq_model,
+    if sources_text:
+        messages.append({
+            "role": "user",
+            "content": f"Reference Knowledge:\n{sources_text}\n\nUser Question: {question}",
+        })
+    else:
+        messages.append({
+            "role": "user",
+            "content": question,
+        })
+
+    response = await call_groq_with_fallback(
         messages=messages,
-        temperature=0.3,
+        temperature=0.4,
         max_tokens=1024,
     )
     answer = response.choices[0].message.content.strip()
-    cited_ids = [c["id"] for c in retrieved_chunks if f"[Source {retrieved_chunks.index(c)+1}]" in answer]
-    return {"answer": answer, "cited_chunk_ids": cited_ids, "grounded": True}
+    return {"answer": answer, "grounded": bool(retrieved_chunks)}
+
+
+# ── Project-Scoped RAG Chat (Strictly Project Documents) ──────────────────────
+
+PROJECT_RAG_SYSTEM_PROMPT = """You are the AI Project Assistant for the construction project "{project_name}".
+
+GUIDELINES:
+1. Answer the user's questions clearly, thoroughly, and helpfully using the provided uploaded documents, drawings, reports, master plans, and specifications for this project.
+2. If the user asks about teams, people, roles, pool names, timelines, specifications, dimensions, materials, or rules mentioned in the document excerpts, provide a complete, well-organized response.
+3. If the provided excerpts genuinely do not contain information to answer the question, state politely:
+   "The uploaded documents for project '{project_name}' do not contain information regarding this topic."
+4. Format your answer cleanly in markdown (bullet points, bold text for key terms). DO NOT output bracketed citation tags like [Source 1] or chunk IDs.
+"""
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+async def generate_project_rag_answer(
+    question: str,
+    project_name: str,
+    retrieved_chunks: list[dict],
+    chat_history: list[dict],
+) -> dict:
+    """
+    Generate an answer strictly grounded on project documents without citation tags.
+    """
+    if not retrieved_chunks:
+        return {
+            "answer": f"The uploaded documents and master plans for project '{project_name}' do not contain information regarding this topic. Please upload relevant drawings or specification PDFs to query them.",
+            "grounded": False,
+        }
+
+    sources_text = "\n\n".join(
+        f"--- Project Document Excerpt {i+1} ({c.get('document_title', 'Project Plan')}) ---\n{c['chunk_text']}"
+        for i, c in enumerate(retrieved_chunks)
+    )
+
+    system_prompt = PROJECT_RAG_SYSTEM_PROMPT.format(project_name=project_name)
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(chat_history[-6:])
+    messages.append({
+        "role": "user",
+        "content": f"Project Documents:\n{sources_text}\n\nQuestion: {question}",
+    })
+
+    response = await call_groq_with_fallback(
+        messages=messages,
+        temperature=0.2,
+        max_tokens=1024,
+    )
+    answer = response.choices[0].message.content.strip()
+    return {"answer": answer, "grounded": True}
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
@@ -243,28 +292,22 @@ async def generate_quotation_followup_answer(
     retrieved_chunks: list[dict],
     chat_history: list[dict],
 ) -> dict:
-    """
-    Answer a follow-up question scoped to a specific uploaded quotation.
-    Grounds on: extracted line items + findings + shared reference chunks.
-    """
     quotation_context = json.dumps({
-        "line_items": line_items[:20],   # cap to avoid token overflow
+        "line_items": line_items[:20],
         "findings": findings,
     }, indent=2)
 
     sources_block = "\n\n".join(
-        f"[Source {i+1}] {c['chunk_text']}" for i, c in enumerate(retrieved_chunks)
+        f"--- Reference Source {i+1} ---\n{c['chunk_text']}" for i, c in enumerate(retrieved_chunks)
     )
 
     system = (
         "You are ConstructOS Assistant answering questions about a specific uploaded quotation.\n"
         "RULES:\n"
-        "1. Answer ONLY using the quotation data (line items, findings) and the provided reference sources.\n"
+        "1. Answer using the quotation data (line items, findings) and provided reference sources.\n"
         "2. If you cite a line item, reference it by its description and line number.\n"
-        "3. If you cite a finding, reference its finding_type and explanation.\n"
-        "4. If the question is unrelated to this quotation, say: 'This question is outside the scope of "
-        "your uploaded quotation — please use the general chat for broader construction questions.'\n"
-        "5. Never invent numbers or findings not present in the data.\n"
+        "3. Do not include bracketed citation numbers. Write naturally.\n"
+        "4. Never invent numbers or findings not present in the data.\n"
     )
 
     messages = [{"role": "system", "content": system}]
@@ -278,8 +321,7 @@ async def generate_quotation_followup_answer(
         ),
     })
 
-    response = await groq_client.chat.completions.create(
-        model=settings.groq_model,
+    response = await call_groq_with_fallback(
         messages=messages,
         temperature=0.2,
         max_tokens=1024,

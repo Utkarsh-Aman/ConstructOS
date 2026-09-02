@@ -16,5 +16,8 @@ venv/
 .idea/
 .vscode/
 
+# Large binaries & documents
+scratch/
+
 # Uploads (local dev)
 uploads/

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Large files & Scratch
+scratch/
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

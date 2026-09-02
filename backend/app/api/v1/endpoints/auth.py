@@ -59,9 +59,13 @@ async def login(body: LoginRequest):
             detail=f"This account is registered as '{actual_role}'. Please select '{actual_role}' to log in."
         )
 
-    # Attempt Supabase Auth login if configured
+    # Verify password via Supabase Auth using the ANON client
+    # IMPORTANT: Never call sign_in_with_password on supabase_admin — it
+    # contaminates the service-role client with a short-lived user session JWT,
+    # causing all subsequent DB queries to fail with PGRST303 after expiry.
     try:
-        supabase_admin.auth.sign_in_with_password({
+        from app.db.supabase_client import supabase_anon
+        supabase_anon.auth.sign_in_with_password({
             "email": body.email,
             "password": body.password,
         })

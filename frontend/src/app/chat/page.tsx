@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Bot, User, ArrowLeft, Send, Loader2 } from "lucide-react"
 import { publicApi } from "@/lib/api"
+import { MarkdownContent } from "@/components/ui/MarkdownContent"
 
 type Source = {
   id: string
@@ -143,22 +144,14 @@ export default function ChatPage() {
                 <div className={`p-4 shadow-sm text-sm ${
                   msg.role === 'user' 
                     ? 'bg-primary text-white rounded-2xl rounded-tr-sm' 
-                    : 'bg-card border border-divider rounded-2xl rounded-tl-sm'
+                    : 'bg-card border border-divider rounded-2xl rounded-tl-sm text-slate-800'
                 }`}>
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  {msg.role === 'user' ? (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  ) : (
+                    <MarkdownContent content={msg.content} />
+                  )}
                 </div>
-                
-                {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
-                  <div className="flex flex-col gap-2 mt-1">
-                    <p className="text-xs text-slate-500 font-medium">Sources cited:</p>
-                    {msg.sources.map((src, i) => (
-                      <div key={i} className="bg-slate-100 border border-slate-200 p-2 rounded text-xs text-slate-600">
-                        <span className="font-semibold">{src.document_title || "Reference"}</span>
-                        {src.chunk_text && <p className="mt-1 opacity-80 italic">"{src.chunk_text}"</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {msg.role === 'user' && (

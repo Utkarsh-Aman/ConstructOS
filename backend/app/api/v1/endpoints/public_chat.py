@@ -147,30 +147,10 @@ async def send_message(
         "content": result["answer"],
     }).execute()
 
-    # --- Store citations ---
-    for chunk_id in result.get("cited_chunk_ids", []):
-        supabase_admin.table("chat_citations").insert({
-            "chat_message_id": asst_msg_id,
-            "citation_type": "RAGDocument",
-            "cited_entity_id": chunk_id,
-        }).execute()
-
-    # Enrich chunks with citation metadata for UI
-    sources = [
-        {
-            "id": c["id"],
-            "document_title": c.get("document_title"),
-            "chunk_text": c["chunk_text"][:200] + "..." if len(c.get("chunk_text", "")) > 200 else c.get("chunk_text"),
-        }
-        for c in retrieved_chunks
-        if c["id"] in result.get("cited_chunk_ids", [])
-    ]
-
     return {
         "chat_session_id": chat_session_id,
         "message_id": asst_msg_id,
         "answer": result["answer"],
         "grounded": result.get("grounded", False),
-        "sources": sources,
-        "disclaimer": "Answers are generated from available sources and may be incomplete — not a substitute for professional advice.",
+        "disclaimer": "Answers are generated from available construction knowledge and standards — not a substitute for professional architectural or structural engineering advice.",
     }

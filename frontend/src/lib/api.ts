@@ -99,8 +99,9 @@ export const companiesApi = {
 export const deliveriesApi = {
   getAll: () => api.get("/deliveries/"),
   getEta: (id: string) => api.get(`/deliveries/${id}/eta`),
-  createDriverLink: (deliveryId: string, driverId: string) => api.post(`/deliveries/${deliveryId}/driver-link?driver_id=${driverId}`),
+  createDriverLink: (deliveryId: string, driverId?: string) => api.post(`/deliveries/${deliveryId}/driver-link${driverId ? `?driver_id=${driverId}` : ""}`),
   postLocationUpdate: (deliveryId: string, data: any) => api.post(`/deliveries/${deliveryId}/location-updates`, data),
+  postMyLocation: (deliveryId: string, data: any) => api.post(`/deliveries/${deliveryId}/my-location`, data),
 }
 
 export const vendorsApi = {
@@ -108,6 +109,14 @@ export const vendorsApi = {
   submitQuote: (rfpId: string, data: any) => api.post(`/vendors/rfps/${rfpId}/quotes`, data),
   withdrawQuote: (rfpId: string, quoteId: string) => api.patch(`/vendors/rfps/${rfpId}/quotes/${quoteId}/withdraw`),
   getMyQuotes: () => api.get("/vendors/my-quotes"),
+}
+
+export const projectRagApi = {
+  getDocuments: (projectId: string) => api.get(`/projects/${projectId}/documents`),
+  ingestDocument: (projectId: string, formData: FormData) => api.post(`/projects/${projectId}/documents/ingest`, formData, {
+    headers: { "Content-Type": "multipart/form-data" }
+  }),
+  queryProject: (projectId: string, data: any) => api.post(`/projects/${projectId}/ai-query`, data),
 }
 
 export const notificationsApi = {

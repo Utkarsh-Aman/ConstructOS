@@ -23,6 +23,10 @@ export default function DashboardOverview() {
       router.push("/dashboard/available-work")
       return
     }
+    if (user?.role === "driver") {
+      router.push("/dashboard/deliveries")
+      return
+    }
 
     const fetchDashboardData = async () => {
       try {

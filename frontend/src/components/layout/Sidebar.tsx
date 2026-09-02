@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, HardHat, FileText, Truck, Users, Package, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, HardHat, FileText, Truck, Users, Package, Settings, LogOut, Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 
@@ -14,13 +14,14 @@ export function Sidebar() {
   const { user, logout } = useAuth()
 
   const navItems = [
-    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["company_admin", "site_manager", "vendor", "driver"] },
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["company_admin", "site_manager", "vendor"] },
     
     // Admin & Site Manager
     { title: "Projects", href: "/dashboard/projects", icon: HardHat, roles: ["company_admin", "site_manager"] },
+    { title: "AI Project Query", href: "/dashboard/ai-query", icon: Bot, roles: ["company_admin", "site_manager"] },
     { title: "Requirements", href: "/dashboard/requirements", icon: Users, roles: ["company_admin", "site_manager"] },
     { title: "Materials", href: "/dashboard/materials", icon: Package, roles: ["company_admin", "site_manager"] },
-    { title: "Deliveries", href: "/dashboard/deliveries", icon: Truck, roles: ["company_admin", "site_manager", "vendor"] },
+    { title: "Deliveries", href: "/dashboard/deliveries", icon: Truck, roles: ["company_admin", "site_manager", "vendor", "driver"] },
     
     // Vendor
     { title: "RFPs / Requests", href: "/dashboard/rfps", icon: FileText, roles: ["vendor"] },

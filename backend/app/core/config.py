@@ -11,8 +11,8 @@ class Settings(BaseSettings):
 
     # Groq
     groq_api_key: str
-    groq_model: str = "llama3-70b-8192"
-    groq_embedding_model: str = "llama3-8b-8192"
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_embedding_model: str = "all-MiniLM-L6-v2"
 
     # Storage
     master_plans_bucket: str = "master-plans"

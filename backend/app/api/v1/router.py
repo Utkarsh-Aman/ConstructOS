@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     public_chat,
     public_quotations,
     notifications,
+    project_rag,
 )
 
 api_router = APIRouter()
@@ -21,6 +22,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(companies.router, prefix="/companies", tags=["Companies"])
 api_router.include_router(projects.router, prefix="/projects", tags=["Projects"])
+api_router.include_router(project_rag.router, prefix="/projects", tags=["Projects - RAG"])
 api_router.include_router(master_plans.router, prefix="/master-plans", tags=["Master Plans"])
 api_router.include_router(worker_requirements.router, prefix="/worker-requirements", tags=["Worker Requirements"])
 api_router.include_router(material_requests.router, prefix="/material-requests", tags=["Material Requests"])
