@@ -62,6 +62,7 @@ export function SubmitQuoteModal({ rfp, onClose, onSuccess }: SubmitQuoteModalPr
 
     try {
       await vendorsApi.submitQuote(rfp.id, {
+        material_request_id: rfp.material_request_id,
         total_amount: calculatedTotal,
         currency: "INR",
         validity_period_days: Number(validityDays),
@@ -84,9 +85,11 @@ export function SubmitQuoteModal({ rfp, onClose, onSuccess }: SubmitQuoteModalPr
         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Submit Quotation</h2>
-            <p className="text-xs text-slate-500 mt-0.5">RFP #{rfp.id.substring(0, 8)}</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {rfp.company_name ? `${rfp.company_name} • ` : ""}{rfp.project_name || `RFP #${rfp.id?.substring(0, 8)}`}
+            </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-md">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>

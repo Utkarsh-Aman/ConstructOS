@@ -233,3 +233,29 @@ async def generate_driver_link(
         "expires_at": expires_at.isoformat(),
         "note": "Share this token with the driver. It expires in 48 hours and can only be used for this delivery.",
     }
+
+
+class DeliveryStatusUpdate(BaseModel):
+    status: str
+    driver_id: Optional[str] = None
+    truck_id: Optional[str] = None
+
+
+@router.patch("/{delivery_id}", summary="Update delivery status, driver, or truck")
+async def update_delivery(
+    delivery_id: str,
+    body: DeliveryStatusUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    update_data = {}
+    if body.status:
+        update_data["status"] = body.status
+    if body.driver_id:
+        update_data["driver_id"] = body.driver_id
+    if body.truck_id:
+        update_data["truck_id"] = body.truck_id
+
+    res = supabase_admin.table("deliveries").update(update_data).eq("id", delivery_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Delivery not found")
+    return res.data[0]

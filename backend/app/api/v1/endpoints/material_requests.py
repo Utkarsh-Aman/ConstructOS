@@ -137,20 +137,111 @@ async def open_rfp(req_id: str, current_user: dict = Depends(require_roles("comp
 
 
 @router.get("/{req_id}/rfp/quotes/compare", summary="Side-by-side quote comparison for Company Admin")
-async def compare_quotes(req_id: str, current_user: dict = Depends(require_roles("company_admin"))):
+async def compare_quotes(req_id: str, current_user: dict = Depends(require_roles("company_admin", "site_manager"))):
     rfp = supabase_admin.table("rfps") \
         .select("id") \
         .eq("material_request_id", req_id) \
         .eq("status", "open") \
-        .single() \
         .execute()
-    if not rfp.data:
-        raise HTTPException(status_code=404, detail="No open RFP for this material request")
+    
+    if not rfp.data or len(rfp.data) == 0:
+        # Check any quotes directly associated
+        rfp_any = supabase_admin.table("rfps").select("id").eq("material_request_id", req_id).execute()
+        if not rfp_any.data:
+            return {"rfp_id": None, "quotes": []}
+        rfp_id = rfp_any.data[0]["id"]
+    else:
+        rfp_id = rfp.data[0]["id"]
 
     quotes = supabase_admin.table("quotes") \
-        .select("*, vendors(business_name), quote_items(*)") \
-        .eq("rfp_id", rfp.data["id"]) \
+        .select("*, vendors(business_name, phone, email), quote_items(*)") \
+        .eq("rfp_id", rfp_id) \
         .neq("status", "withdrawn") \
         .execute()
 
-    return {"rfp_id": rfp.data["id"], "quotes": quotes.data or []}
+    formatted_quotes = []
+    for q in (quotes.data or []):
+        items = q.get("quote_items") or []
+        tot = sum(float(it.get("total") or 0) for it in items)
+        formatted_quotes.append({
+            **q,
+            "total_amount": tot,
+            "currency": "INR",
+            "validity_period_days": 30,
+            "delivery_timeline_days": 3,
+        })
+
+    return {"rfp_id": rfp_id, "quotes": formatted_quotes}
+
+
+@router.post("/{req_id}/quotes/{quote_id}/accept", summary="Accept a vendor quote and schedule delivery")
+async def accept_quote(
+    req_id: str,
+    quote_id: str,
+    current_user: dict = Depends(require_roles("company_admin", "site_manager")),
+):
+    from datetime import datetime, timedelta
+
+    # 1. Fetch material request
+    req_res = supabase_admin.table("material_requests").select("*").eq("id", req_id).single().execute()
+    if not req_res.data:
+        raise HTTPException(status_code=404, detail="Material request not found")
+    req = req_res.data
+
+    # 2. Fetch quote
+    quote_res = supabase_admin.table("quotes").select("*, vendors(*)").eq("id", quote_id).single().execute()
+    if not quote_res.data:
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    quote = quote_res.data
+
+    rfp_id = quote.get("rfp_id")
+
+    # 3. Mark selected quote as accepted
+    supabase_admin.table("quotes").update({"status": "accepted"}).eq("id", quote_id).execute()
+
+    # 4. Mark competing quotes for this RFP as rejected
+    if rfp_id:
+        supabase_admin.table("quotes").update({"status": "rejected"}).eq("rfp_id", rfp_id).neq("id", quote_id).execute()
+        supabase_admin.table("rfps").update({"status": "closed"}).eq("id", rfp_id).execute()
+
+    # 5. Mark material request as fulfilled
+    supabase_admin.table("material_requests").update({"status": "fulfilled"}).eq("id", req_id).execute()
+
+    # 6. Automatically create real delivery record
+    lead_days = quote.get("delivery_timeline_days") or 3
+    expected_delivery_date = (datetime.utcnow() + timedelta(days=lead_days)).strftime("%Y-%m-%d")
+    
+    delivery_id = str(uuid.uuid4())
+    supabase_admin.table("deliveries").insert({
+        "id": delivery_id,
+        "quote_id": quote_id,
+        "project_id": req["project_id"],
+        "material": req["material"],
+        "quantity": req["quantity"],
+        "expected_date": expected_delivery_date,
+        "status": "scheduled",
+    }).execute()
+
+    # 7. Notify vendor user if possible
+    vendor_user_id = quote.get("vendors", {}).get("user_id") if quote.get("vendors") else None
+    if vendor_user_id:
+        try:
+            supabase_admin.table("notifications").insert({
+                "user_id": vendor_user_id,
+                "type": "quote_accepted",
+                "payload_json": {
+                    "material": req["material"],
+                    "quote_id": quote_id,
+                    "delivery_id": delivery_id,
+                    "message": f"Congratulations! Your quote for {req['material']} ({req['quantity']} {req['unit']}) was accepted.",
+                },
+            }).execute()
+        except Exception:
+            pass
+
+    return {
+        "status": "accepted",
+        "quote_id": quote_id,
+        "delivery_id": delivery_id,
+        "message": "Quotation accepted successfully. Delivery shipment has been scheduled.",
+    }

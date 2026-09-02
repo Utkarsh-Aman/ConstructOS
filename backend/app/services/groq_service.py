@@ -182,7 +182,7 @@ async def generate_overall_summary(findings: list[dict], line_items: list[dict])
 
 # ── Public RAG Chat (General, Friendly, Flexible) ─────────────────────────────
 
-PUBLIC_RAG_SYSTEM_PROMPT = """You are ConstructOS Assistant — a friendly, knowledgeable, and expert AI assistant for construction, civil engineering, architecture, building materials, waterproofing, glazing, site safety, and project workflows.
+PUBLIC_RAG_SYSTEM_PROMPT = """You are CONCURIS Assistant — a friendly, knowledgeable, and expert AI assistant for construction, civil engineering, architecture, building materials, waterproofing, glazing, site safety, and project workflows.
 
 GUIDELINES:
 1. Provide helpful, informative, and well-structured answers to user questions.
@@ -315,7 +315,7 @@ async def generate_quotation_followup_answer(
     )
 
     system = (
-        "You are ConstructOS Assistant answering questions about a specific uploaded quotation.\n"
+        "You are CONCURIS Assistant answering questions about a specific uploaded quotation.\n"
         "RULES:\n"
         "1. Answer using the quotation data (line items, findings) and provided reference sources.\n"
         "2. If you cite a line item, reference it by its description and line number.\n"

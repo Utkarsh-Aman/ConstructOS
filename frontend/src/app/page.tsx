@@ -1,7 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/Button"
-import { HardHat, Bot, ShieldCheck, ArrowRight } from "lucide-react"
+import { HardHat, Bot, Package, ArrowRight } from "lucide-react"
 
 export default function LandingPage() {
   return (
@@ -34,7 +34,6 @@ export default function LandingPage() {
         </Link>
         <nav className="hidden md:flex gap-6 text-sm font-medium text-foreground/80">
           <Link href="#features" className="hover:text-primary transition">Features</Link>
-          <Link href="/verify" className="hover:text-primary transition">Verify Quotation</Link>
           <Link href="/chat" className="hover:text-primary transition">Public AI Chat</Link>
         </nav>
         <div className="flex items-center gap-2 sm:gap-4">
@@ -86,11 +85,11 @@ export default function LandingPage() {
           </div>
           <div className="bg-card/90 backdrop-blur-sm p-6 sm:p-8 rounded-2xl border border-divider shadow-xs flex flex-col items-center sm:items-start text-center sm:text-left">
             <div className="h-12 w-12 rounded-xl bg-success/10 text-success flex items-center justify-center mb-5">
-              <ShieldCheck className="h-6 w-6" />
+              <Package className="h-6 w-6" />
             </div>
-            <h3 className="text-lg sm:text-xl font-bold mb-2">Quotation Verification</h3>
+            <h3 className="text-lg sm:text-xl font-bold mb-2">Vendor Marketplace & Bidding</h3>
             <p className="text-foreground/70 text-sm leading-relaxed">
-              Our unique public portal allows instant verification of vendor quotations for absolute transparency.
+              Post material demands across companies, receive competitive vendor quotes, and schedule live GPS shipments.
             </p>
           </div>
           <div className="bg-card/90 backdrop-blur-sm p-6 sm:p-8 rounded-2xl border border-divider shadow-xs flex flex-col items-center sm:items-start text-center sm:text-left">

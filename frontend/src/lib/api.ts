@@ -86,6 +86,7 @@ export const materialRequestsApi = {
   updateStatus: (id: string, status: string) => api.patch(`/material-requests/${id}/status`, { status }),
   openRfp: (id: string) => api.post(`/material-requests/${id}/rfp`),
   compareQuotes: (id: string) => api.get(`/material-requests/${id}/rfp/quotes/compare`),
+  acceptQuote: (reqId: string, quoteId: string) => api.post(`/material-requests/${reqId}/quotes/${quoteId}/accept`),
 }
 
 export const publicApi = {
@@ -113,13 +114,20 @@ export const deliveriesApi = {
   createDriverLink: (deliveryId: string, driverId?: string) => api.post(`/deliveries/${deliveryId}/driver-link${driverId ? `?driver_id=${driverId}` : ""}`),
   postLocationUpdate: (deliveryId: string, data: any) => api.post(`/deliveries/${deliveryId}/location-updates`, data),
   postMyLocation: (deliveryId: string, data: any) => api.post(`/deliveries/${deliveryId}/my-location`, data),
+  update: (deliveryId: string, data: any) => api.patch(`/deliveries/${deliveryId}`, data),
 }
 
 export const vendorsApi = {
   getOpenRfps: () => api.get("/vendors/rfps"),
   submitQuote: (rfpId: string, data: any) => api.post(`/vendors/rfps/${rfpId}/quotes`, data),
-  withdrawQuote: (rfpId: string, quoteId: string) => api.patch(`/vendors/rfps/${rfpId}/quotes/${quoteId}/withdraw`),
+  withdrawQuote: (rfpId: string, quoteId: string) => api.patch(`/vendors/quotes/${quoteId}/withdraw`),
   getMyQuotes: () => api.get("/vendors/my-quotes"),
+  getDrivers: () => api.get("/vendors/drivers"),
+  createDriver: (data: any) => api.post("/vendors/drivers", data),
+  deleteDriver: (id: string) => api.delete(`/vendors/drivers/${id}`),
+  getTrucks: () => api.get("/vendors/trucks"),
+  createTruck: (data: any) => api.post("/vendors/trucks", data),
+  deleteTruck: (id: string) => api.delete(`/vendors/trucks/${id}`),
 }
 
 export const projectRagApi = {

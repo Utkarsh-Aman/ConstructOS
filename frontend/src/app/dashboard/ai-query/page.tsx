@@ -41,7 +41,7 @@ export default function AIProjectQueryPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I am your ConstructOS AI Project Assistant. Select a project above and ask any question about your drawings, master plans, material specs, or safety codes.",
+      content: "Hello! I am your CONCURIS AI Project Assistant. Select a project above and ask any question about your drawings, master plans, material specs, or safety codes.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     }
   ])
